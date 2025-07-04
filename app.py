@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 # 加载环境变量
-load_dotenv() # 不一定要有
+load_dotenv()
 
 app = Flask(__name__)
 
 # SQLite数据库路径配置
-DB_PATH = '/home/scrawl/mysite/cloud_vars.db' # 换成你的路径
+DB_PATH = os.getenv('DB_PATH', 'cloud_variables.db')
 
 def get_db_connection():
     """获取SQLite数据库连接"""
