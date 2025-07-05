@@ -34,14 +34,12 @@ def init_db():
     try:
         cursor = conn.cursor()
 
-        # 创建项目表
+        # 创建项目表 - 移除了project_name和api_key
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS projects (
                 project_id TEXT PRIMARY KEY,
-                project_name TEXT NOT NULL,
                 created_at REAL NOT NULL,
-                last_accessed REAL NOT NULL,
-                api_key TEXT NOT NULL
+                last_accessed REAL NOT NULL
             )
         """)
 
@@ -76,32 +74,22 @@ init_db()
 
 @app.route('/api/register', methods=['POST'])
 def register_project():
-    data = request.get_json()
-    project_name = data.get('project_name')
-
-    if not project_name:
-        return jsonify({'error': 'Missing project_name'}), 400
-
+    """注册新项目 - 只需生成project_id"""
     conn = get_db_connection()
     if conn is None:
         return jsonify({'error': 'Database connection failed'}), 500
 
     project_id = str(uuid.uuid4())
-    api_key = str(uuid.uuid4())
     created_at = time.time()
 
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO projects (project_id, project_name, created_at, last_accessed, api_key) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (project_id, project_name, created_at, created_at, api_key)
-        )
+            "INSERT INTO projects (project_id, created_at, last_accessed) "
+            "VALUES (?, ?, ?)",
+            (project_id, created_at, created_at)
         conn.commit()
-        return jsonify({
-            'project_id': project_id,
-            'api_key': api_key
-        }), 201
+        return jsonify({'project_id': project_id}), 201
     except sqlite3.Error as err:
         return jsonify({'error': str(err)}), 500
     finally:
@@ -109,10 +97,7 @@ def register_project():
 
 @app.route('/api/<project_id>/set', methods=['POST'])
 def set_variable(project_id):
-    api_key = request.headers.get('X-API-Key')
-    if not api_key:
-        return jsonify({'error': 'Missing API key'}), 401
-
+    """设置变量 - 移除了API key验证"""
     data = request.get_json()
     var_name = data.get('var_name')
     var_value = data.get('var_value')
@@ -127,15 +112,13 @@ def set_variable(project_id):
     try:
         cursor = conn.cursor()
 
-        # 验证 API key 并更新访问时间
+        # 验证项目是否存在并更新访问时间
         cursor.execute(
-            "SELECT api_key FROM projects WHERE project_id = ?",
+            "SELECT 1 FROM projects WHERE project_id = ?",
             (project_id,)
         )
-        result = cursor.fetchone()
-
-        if not result or result['api_key'] != api_key:
-            return jsonify({'error': 'Invalid API key'}), 401
+        if not cursor.fetchone():
+            return jsonify({'error': 'Project not found'}), 404
 
         current_time = time.time()
         cursor.execute(
@@ -166,10 +149,7 @@ def set_variable(project_id):
 
 @app.route('/api/<project_id>/get', methods=['GET'])
 def get_variable(project_id):
-    api_key = request.headers.get('X-API-Key')
-    if not api_key:
-        return jsonify({'error': 'Missing API key'}), 401
-
+    """获取变量 - 移除了API key验证"""
     var_name = request.args.get('var_name')
     if not var_name:
         return jsonify({'error': 'Missing var_name'}), 400
@@ -181,15 +161,13 @@ def get_variable(project_id):
     try:
         cursor = conn.cursor()
 
-        # 验证 API key 并更新访问时间
+        # 验证项目是否存在并更新访问时间
         cursor.execute(
-            "SELECT api_key FROM projects WHERE project_id = ?",
+            "SELECT 1 FROM projects WHERE project_id = ?",
             (project_id,)
         )
-        result = cursor.fetchone()
-
-        if not result or result['api_key'] != api_key:
-            return jsonify({'error': 'Invalid API key'}), 401
+        if not cursor.fetchone():
+            return jsonify({'error': 'Project not found'}), 404
 
         current_time = time.time()
         cursor.execute(
@@ -225,10 +203,7 @@ def get_variable(project_id):
 
 @app.route('/api/<project_id>/all', methods=['GET'])
 def get_all_variables(project_id):
-    api_key = request.headers.get('X-API-Key')
-    if not api_key:
-        return jsonify({'error': 'Missing API key'}), 401
-
+    """获取所有变量 - 移除了API key验证"""
     conn = get_db_connection()
     if conn is None:
         return jsonify({'error': 'Database connection failed'}), 500
@@ -236,15 +211,13 @@ def get_all_variables(project_id):
     try:
         cursor = conn.cursor()
 
-        # 验证 API key 并更新访问时间
+        # 验证项目是否存在并更新访问时间
         cursor.execute(
-            "SELECT api_key FROM projects WHERE project_id = ?",
+            "SELECT 1 FROM projects WHERE project_id = ?",
             (project_id,)
         )
-        result = cursor.fetchone()
-
-        if not result or result['api_key'] != api_key:
-            return jsonify({'error': 'Invalid API key'}), 401
+        if not cursor.fetchone():
+            return jsonify({'error': 'Project not found'}), 404
 
         current_time = time.time()
         cursor.execute(
@@ -281,10 +254,7 @@ def get_all_variables(project_id):
 
 @app.route('/api/<project_id>/batch_update', methods=['POST'])
 def batch_update(project_id):
-    api_key = request.headers.get('X-API-Key')
-    if not api_key:
-        return jsonify({'error': 'Missing API key'}), 401
-
+    """批量更新变量 - 移除了API key验证"""
     data = request.get_json()
     updates = data.get('updates', [])
 
@@ -298,15 +268,13 @@ def batch_update(project_id):
     try:
         cursor = conn.cursor()
 
-        # 验证 API key
+        # 验证项目是否存在
         cursor.execute(
-            "SELECT api_key FROM projects WHERE project_id = ?",
+            "SELECT 1 FROM projects WHERE project_id = ?",
             (project_id,)
         )
-        result = cursor.fetchone()
-
-        if not result or result['api_key'] != api_key:
-            return jsonify({'error': 'Invalid API key'}), 401
+        if not cursor.fetchone():
+            return jsonify({'error': 'Project not found'}), 404
 
         # 更新访问时间
         current_time = time.time()
