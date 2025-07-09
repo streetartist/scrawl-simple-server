@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import sqlite3
 import uuid
 import time
@@ -13,7 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # SQLite数据库路径配置
-DB_PATH = os.getenv('DB_PATH', 'cloud_variables.db')
+DB_PATH = '/www/wwwroot/scrawl/cloud_variables.db'
 
 def get_db_connection():
     """获取SQLite数据库连接"""
@@ -72,6 +72,11 @@ def init_db():
 # 初始化数据库
 init_db()
 
+@app.route('/')
+def index():
+    """显示项目ID生成页面"""
+    return render_template('index.html')
+
 @app.route('/api/register', methods=['POST'])
 def register_project():
     """注册新项目 - 只需生成project_id"""
@@ -87,7 +92,7 @@ def register_project():
         cursor.execute(
             "INSERT INTO projects (project_id, created_at, last_accessed) "
             "VALUES (?, ?, ?)",
-            (project_id, created_at, created_at)
+            (project_id, created_at, created_at))
         conn.commit()
         return jsonify({'project_id': project_id}), 201
     except sqlite3.Error as err:
