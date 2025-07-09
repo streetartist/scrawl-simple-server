@@ -12,3 +12,5 @@ app.py为主程序
 包括sqlite数据库存储地址
 
 执行清理操作所需密码
+
+https://xyeiylzbvoel.sealoshzh.site/
